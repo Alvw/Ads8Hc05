@@ -5,19 +5,22 @@
 #include "ads1292.h"
 #include "ADC10.h"
 #include "PacketUtil.h"
+#include <string.h>
+
+#define helloMsg "\xAA\xA5\x05\xA0\x55"
+#define firmwareVersion "\xAA\xA5\x07\xA1\x01\x00\x55"
+#define errMsg "\xAA\xA5\x07\xA2\x00\x00\x55"
+#define lowBatteryMessage "\xAA\xA5\x07\xA3\x00\x01\x55"
 
 void onRF_MessageReceived();
 void onRF_MultiByteMessage();
 void startRecording();
 uchar packetDataReady = 0;
-uchar helloMsg[] = {0xAA, 0xA5, 0x05, 0xA0, 0x55};//todo change to const!!!!!!!!!!!!!!!1
-uchar firmwareVersion[] = {0xAA, 0xA5, 0x07, 0xA1,0x01,0x00, 0x55};//todo change to const!!!!!!!!!!!!!!!
-uchar errMsg[] = {0xAA, 0xA5, 0x07, 0xA2,0x00,0x00, 0x55};//todo change to const!!!!!!!!!!!!!!!1
-uchar lowBatteryMessage[] = {0xAA, 0xA5, 0x07, 0xA3,0x00,0x01, 0x55};
 uchar lowBatteryMessageAlreadySent = 0;
 uchar shut_down_flag = 0;
 uchar pingCntr = 0; 
 uchar timerTask;
+
 //таймаут до перезагрузки RF модуля в количестве циклов таймера. 1 цикл таймера ~ 0.25 секунды.
 // 0 - перезагрузка отключена
 uint resetTimeout = 0; 
@@ -26,6 +29,8 @@ int main(void)
 {
   __disable_interrupt();
   sys_init();
+  __delay_cycles(16000000); 
+  P1OUT |= BIT6; //защелкиваем питание
   ADC10_Init();
   AFE_Init();
   rf_init();
@@ -63,9 +68,11 @@ void onRF_MessageReceived(){
       startRecording();
       break;
     case 0xFD: //hello command
+//      memcpy (msgBuf, helloMsg, 5);
       rf_send(helloMsg,5);
       break;
     case 0xFC: //версия прошивки
+//      memcpy (msgBuf, firmwareVersion, 7);
       rf_send(firmwareVersion,7);
       break;
     case 0xFB: //ping command
@@ -77,6 +84,7 @@ void onRF_MessageReceived(){
         if(((rf_rx_buf[rf_rx_buf[0]-1] == 0x55) && (rf_rx_buf[rf_rx_buf[0]-2] == 0x55))){
           onRF_MultiByteMessage();
         }else{
+//          memcpy (msgBuf, errMsg, 7);
           rf_send(errMsg,7);
         }
       }
@@ -121,6 +129,7 @@ void onRF_MultiByteMessage(){
        startRecording();
        msgOffset+=1;
     }else{
+//      memcpy (msgBuf, errMsg, 7);
       rf_send(errMsg,7);
       return;
     }
@@ -176,6 +185,9 @@ __interrupt void TimerA_ISR(void)
       timerTask = 0x01;
       pingCntr = 0;
   }
+  if(!(BIT5 & P2IN)){// if power button pressed
+      shut_down_flag = 1;
+  }
   if(!lowBatteryMessageAlreadySent){
       if(batteryVoltage < BATT_LOW_TH){
         lowBatteryMessageAlreadySent = 1;
@@ -186,9 +198,11 @@ __interrupt void TimerA_ISR(void)
   if(shut_down_flag){
     shut_down_flag++;
     if(shut_down_flag == 20){//wait 5 second before shut down
-      AFE_StopRecording();
-      P3OUT &= ~BIT7;//BT reset pin low  
-      TACCR0 = 0x00;
+//      AFE_StopRecording();
+//      P3OUT &= ~BIT7;//BT reset pin low  
+//      TACCR0 = 0x00;
+      Pwr_Indication();
+      P1OUT &= ~BIT6; //power hold pin
     }
   }
 }

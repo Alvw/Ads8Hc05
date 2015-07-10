@@ -25,10 +25,18 @@ void sys_init(){
   P1OUT &= ~BIT7;
   
   //initialize BT_CON_STAT pin (P1.0)
-  P1REN |= BIT0; // Pull-UP/DOWN Resistors Enabled
+  P1REN |= BIT0;         // Pull-UP/DOWN Resistors Enabled
   P1IES &= ~BIT0;       // Interrupt on rising edge
-  P1IFG &= ~BIT0;      // Clear flag
-  P1IE |= BIT0;        // Enable interrupt on DRDY
+  P1IFG &= ~BIT0;       // Clear flag
+  P1IE |= BIT0;         // Enable interrupt on DRDY
+  
+  //initialize power hold pin
+  P1DIR |= BIT6;
+  P1OUT &= ~BIT6; //Отключаем питание при ненажатой кнопке
+  
+  //RF reset pin
+  P3DIR |= BIT7;
+  P3OUT &= ~BIT7;
   
 // Неиспользуемые выводы
   P1DIR |= BIT1 + BIT3 + BIT5;
