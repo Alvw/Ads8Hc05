@@ -15,11 +15,14 @@
 void onRF_MessageReceived();
 void onRF_MultiByteMessage();
 void startRecording();
+void stopRecording();
 uchar packetDataReady = 0;
 uchar lowBatteryMessageAlreadySent = 0;
-uchar shut_down_flag = 0;
+uchar shutDownCntr = 0;
 uchar pingCntr = 0; 
-uchar timerTask;
+uchar rfResetCntr = 0;
+uint powerUpCntr = 1;
+uchar btnCntr = 0;
 
 //таймаут до перезагрузки RF модуля в количестве циклов таймера. 1 цикл таймера ~ 0.25 секунды.
 // 0 - перезагрузка отключена
@@ -29,12 +32,13 @@ int main(void)
 {
   __disable_interrupt();
   sys_init();
-  __delay_cycles(16000000); 
+  __delay_cycles(8000000);//Защита от коротких нажатий
   P1OUT |= BIT6; //защелкиваем питание
+  led(1);
   ADC10_Init();
   AFE_Init();
   rf_init();
-  Pwr_Indication();
+  TACCR0 = 0xFFFF;// запуск таймера
   __enable_interrupt();
 
  while (1)
@@ -61,8 +65,7 @@ int main(void)
 void onRF_MessageReceived(){
     switch(rf_rx_buf[0]){
     case 0xFF: //stop recording command
-      TACCR0 = 0x00; //timer stop
-      AFE_StopRecording();
+      stopRecording();
       break;
     case 0xFE: //start recording command
       startRecording();
@@ -76,7 +79,7 @@ void onRF_MessageReceived(){
       rf_send(firmwareVersion,7);
       break;
     case 0xFB: //ping command
-      pingCntr = 0;
+      pingCntr = 1;
       break;
     default:
       if(rf_rx_buf[0] <= rf_rx_buf_size){//проверяем длину команды
@@ -122,8 +125,7 @@ void onRF_MultiByteMessage(){
       resetTimeout = rf_rx_buf[msgOffset+1] * 4;
       msgOffset+=2;
     }else if(rf_rx_buf[msgOffset] == 0xFF){//stop recording command 
-       TACCR0 = 0x00;
-       AFE_StopRecording();
+       stopRecording();
        msgOffset+=1;
     }else if(rf_rx_buf[msgOffset] == 0xFE){//start recording command 
        startRecording();
@@ -137,14 +139,19 @@ void onRF_MultiByteMessage(){
 }
 
 void startRecording(){
+       powerUpCntr = 0;
        packetUtilResetCounters();
        lowBatteryMessageAlreadySent = 0;
-       shut_down_flag = 0;
-       if(resetTimeout){
-        TACCR0 = 0xFFFF;
-        pingCntr = 0;
-       }
+       shutDownCntr = 0;
+       pingCntr = 1;
        AFE_StartRecording();
+       led(0);
+}
+
+void stopRecording(){
+  powerUpCntr = 1;
+  pingCntr = 0;
+  AFE_StopRecording();
 }
 
 /* ------------------------ Прерывание от P1 ----------------------- */
@@ -175,35 +182,53 @@ __interrupt void Port1_ISR(void)
 __interrupt void TimerA_ISR(void)
 { 
   TACTL &= ~TAIFG;
-  if(timerTask == 0x01){
+  if(rfResetCntr == 0x01){
     P3OUT |= BIT7;//BT reset pin hi
-    timerTask = 0;
+    rfResetCntr = 0;
   }
-  pingCntr++;
-  if(pingCntr > resetTimeout){//no signal from host for ~ resetTimeout * 4 seconds
+  if(pingCntr && resetTimeout){
+    pingCntr++;
+    if(pingCntr > resetTimeout){//no signal from host for ~ resetTimeout * 4 seconds
       P3OUT &= ~BIT7; //BT reset pin lo
-      timerTask = 0x01;
-      pingCntr = 0;
+      rfResetCntr = 0x01;
+      pingCntr = 1;
+    }
   }
   if(!(BIT5 & P2IN)){// if power button pressed
-      shut_down_flag = 1;
+      btnCntr++;
+  }else{
+      btnCntr = 0;
   }
+  if(btnCntr >= 4){
+        led(1);
+        P1OUT &= ~BIT6; //power hold pin
+        while(1){} //ждем отпускания кнопки
+  }
+  
   if(!lowBatteryMessageAlreadySent){
       if(batteryVoltage < BATT_LOW_TH){
         lowBatteryMessageAlreadySent = 1;
         rf_send_after((uchar*)&lowBatteryMessage[0],7);
-        shut_down_flag = 1;
+        shutDownCntr = 1;
       }
     }
-  if(shut_down_flag){
-    shut_down_flag++;
-    if(shut_down_flag == 20){//wait 5 second before shut down
-//      AFE_StopRecording();
-//      P3OUT &= ~BIT7;//BT reset pin low  
-//      TACCR0 = 0x00;
-      Pwr_Indication();
+  if(shutDownCntr){
+    shutDownCntr++;
+    if(shutDownCntr == 4){//wait 1 second before shut down
       P1OUT &= ~BIT6; //power hold pin
     }
+  }
+  if(powerUpCntr){
+    powerUpCntr++;
+    if(powerUpCntr >= 2400){//забыли выключить питание (не стартует запись в теечение ~10 минут)
+      P1OUT &= ~BIT6; //отключаем питание
+    }
+    if(powerUpCntr%2){
+      led(1);
+    }else{
+      led(0);
+    }
+  
   }
 }
 /* -------------------------------------------------------------------------- */ 
