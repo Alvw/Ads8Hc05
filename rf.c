@@ -5,12 +5,10 @@
 #include "subroutine.h"
 
 uchar getStrSize(uchar* str);
-
 //extern
 uchar rf_tx_in_progress; 
 uchar rf_rx_data_ready_fg;
-uchar rf_rx_buf_size = 51;
-uchar rf_rx_buf[51];// заменить на константу.
+uchar rf_rx_buf[rf_rx_buf_size];
 uchar rf_rx_data_size;
 
 uchar* rf_tx_buf;
@@ -20,6 +18,8 @@ uchar rf_tx_buf_1_size = 0;
 
 uchar rf_tx_cntr = 0;
 uchar rf_rx_cntr = 0;
+
+uchar rf_incoming_message_timeout_cntr = 0;
 
 void rf_reset(){
   P3OUT &= ~BIT7;
@@ -55,12 +55,14 @@ __interrupt void USCI0RX_ISR(void) {
         __bic_SR_register_on_exit(CPUOFF);
       }else{
         rf_rx_data_size = rf_rx_buf[0];
+        rf_incoming_message_timeout_cntr = 1;
       }
       break;
     default:
       if(rf_rx_cntr == rf_rx_data_size){
         rf_rx_cntr = 0;
         rf_rx_data_ready_fg = 1;
+        rf_incoming_message_timeout_cntr = 0;
         __bic_SR_register_on_exit(CPUOFF);
       }
       break;
@@ -102,17 +104,13 @@ void rf_send_after(uchar* cmd, uchar length){
   rf_tx_buf_1_size = length;
 }
 
-void sendAtCommand(uchar* cmd){
-  rf_rx_cntr = 0;
-  rf_send(cmd, getStrSize(cmd));
-    __delay_cycles(1600000);
-}
-
-uchar getStrSize(uchar* str){
-  uchar size = 0;
-  while(str[size]){
-    size++;
+uchar rf_delete_unfinished_incoming_messages(){
+  if(rf_incoming_message_timeout_cntr){
+    rf_incoming_message_timeout_cntr++;
+    if(rf_incoming_message_timeout_cntr == 4){
+      rf_rx_cntr = 0;
+      return 1;
+    }
   }
-  return size;
+  return 0;
 }
-

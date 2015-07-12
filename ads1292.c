@@ -150,23 +150,12 @@ void AFE_Read_Data(long* result){
   AFE_CharBuff[1] = spiRxBuf[i*3+5];
   result[i] = result[i] >> 8;
   }
-  //-------------------
-//  AFE_CharBuff = (uchar *) &result[0]; 
-//  AFE_CharBuff[3] = spiRxBuf[3];
-//  AFE_CharBuff[2] = spiRxBuf[4];
-//  AFE_CharBuff[1] = spiRxBuf[5];
-//  result[0] = result[0] >> 8;
-//  
-//  AFE_CharBuff = (uchar *) &result[1]; 
-//  AFE_CharBuff[3] = spiRxBuf[6];
-//  AFE_CharBuff[2] = spiRxBuf[7];
-//  AFE_CharBuff[1] = spiRxBuf[8];
-//  result[1] = result[1] >> 8;
 }
 
-uchar AFE_getLoffStatus(){
-  uchar result = ((spiRxBuf[0]<<1)&0x0E) | ((spiRxBuf[1]>>7)&0x01);
-  return result;
+uint AFE_getLoffStatus(){
+  uint result;
+  result = ((spiRxBuf[0] << 4)&0xF0)+((spiRxBuf[1] >> 4)&0x0F);
+  return ((result << 8)&0xFF00) + ((spiRxBuf[1] << 4)&0xF0) + ((spiRxBuf[2] >> 4)&0x0F);
 }
 
 

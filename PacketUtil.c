@@ -13,8 +13,8 @@ uchar div[NUMBER_OF_CHANNELS] ={1,1,1,1,1,1,1,1,10,10,10,0}; // frequency divide
 uchar offsetCounter[NUMBER_OF_CHANNELS] = {0,0,0,0,0,0,0,0,0,0,0,0}; // offsetCounter[i]_max = ( MAX_DIV / div[i] )  - number of "long" to buffer data from channel i
 uchar sumCounter[NUMBER_OF_CHANNELS]= {0,0,0,0,0,0,0,0,0,0,0,0}; // sumCounter[i]_max = div[i] - how many times we sum input data from channel i to have average output data
 uchar loffStatEnable = 0;//0 - disable, 1 - enable
-uchar loffStat;
-uint batteryVoltage = BATT_LOW_TH;
+uint loffStat;
+//uint batteryVoltage = BATT_LOW_TH;
 
 void packetUtilResetCounters(){
   memset(offsetCounter, 0, NUMBER_OF_CHANNELS); 
@@ -102,12 +102,12 @@ uchar assemblePacket(){
   if (div[11] != 0) {
         packetCharBuff[charIndex++] = packetCharBuff[longIndex*4];
         packetCharBuff[charIndex++] = packetCharBuff[longIndex*4 + 1];
-        batteryVoltage = *(uint *)&packetCharBuff[longIndex*4];
         longIndex++;
   }
   //Add loff status if enabled
   if(loffStatEnable){
-    packetCharBuff[charIndex++] = loffStat;
+    packetCharBuff[charIndex++] = (uchar)loffStat;
+    packetCharBuff[charIndex++] = (uchar)(loffStat>>8);
   }
   //Add footer value 0x55
   packetCharBuff[charIndex++] = 0x55;
