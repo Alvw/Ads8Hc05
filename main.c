@@ -8,8 +8,10 @@
 
 #define helloMsg "\xAA\xA5\x05\xA0\x55"
 #define firmwareVersion "\xAA\xA5\x07\xA1\x01\x00\x55"
-#define errMsg "\xAA\xA5\x07\xA2\x00\x00\x55"
+#define unknownMultiByteCmdError "\xAA\xA5\x07\xA2\x00\x00\x55"
 #define unfinishedIncomingMsgError "\xAA\xA5\x07\xA2\x00\x01\x55"
+#define unknownOneByteCmdError     "\xAA\xA5\x07\xA2\x00\x02\x55" 
+#define noStopMarkerError          "\xAA\xA5\x07\xA2\x00\x03\x55"
 #define lowBatteryMessage "\xAA\xA5\x07\xA3\x00\x01\x55"
 #define hardwareConfigMessage "\xAA\xA5\x09\xA4\x00\x01\x08\x01\x55"//reserved, power button, 8ADS channels, 1 accelerometer
 
@@ -55,9 +57,7 @@ int main(void)
    }
    if (packetDataReady){       
      uchar packetSize = assemblePacket();
-     if(!rf_tx_in_progress){//Подумать чего тут делать
-       rf_send((uchar*)&packet_buf[0], packetSize);
-     }
+     rf_send((uchar*)&packet_buf[0], packetSize);
      packetDataReady = 0;      
    }
    if(rf_rx_data_ready_fg || packetDataReady){
@@ -89,13 +89,14 @@ void onRF_MessageReceived(){
      sendMessage(hardwareConfigMessage,9);
       break;
     default:
-      if(rf_rx_buf[0] <= rf_rx_buf_size){//проверяем длину команды
-        //проверяем два последних байта == маркер конца пакета
-        if(((rf_rx_buf[rf_rx_buf[0]-1] == 0x55) && (rf_rx_buf[rf_rx_buf[0]-2] == 0x55))){
-          onRF_MultiByteMessage();
-        }else{
-          sendMessage(errMsg,7);
-        }
+      if((rf_rx_buf_size < rf_rx_buf[0]) && (rf_rx_buf[0] < 0xFA)){//проверяем длину однобайтовой команды
+        sendMessage(unknownOneByteCmdError,7);
+      }
+      //проверяем два последних байта == маркер конца пакета
+      if(((rf_rx_buf[rf_rx_buf[0]-1] == 0x55) && (rf_rx_buf[rf_rx_buf[0]-2] == 0x55))){
+        onRF_MultiByteMessage();
+      }else{
+        sendMessage(noStopMarkerError,7);
       }
       break;
     }
@@ -137,7 +138,7 @@ void onRF_MultiByteMessage(){
        startRecording();
        msgOffset+=1;
     }else{
-      sendMessage(errMsg,7);
+      sendMessage(unknownMultiByteCmdError,7);
       return;
     }
   }
@@ -232,7 +233,7 @@ __interrupt void TimerA_ISR(void)
   }else{
       btnCntr = 0;
   }
-  if(btnCntr >= 4){
+  if(btnCntr >= (4 + isRecording * 20)){ //1 сек задержка перед выключением в покое и 6 сек при записи
         led(1);
         P1OUT &= ~BIT6; //power hold pin
         while(1){} //ждем отпускания кнопки
@@ -247,7 +248,7 @@ __interrupt void TimerA_ISR(void)
   }
   if(shutDownCntr){
     shutDownCntr++;
-    if(shutDownCntr == 5){//wait 1 second before shut down
+    if(shutDownCntr == 20){//wait 1 second before shut down
       P1OUT &= ~BIT6; //power hold pin
     }
   }

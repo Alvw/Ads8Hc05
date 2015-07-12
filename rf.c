@@ -70,7 +70,6 @@ __interrupt void USCI0RX_ISR(void) {
 }
 
 void startRFSending() {
-  rf_tx_in_progress = 1;
   rf_tx_cntr = 0;
   while (!(IFG2 & UCA0TXIFG));
   IFG2 &= ~UCA0TXIFG;                     //tx flag reset!!!!!!!!!
@@ -94,6 +93,10 @@ __interrupt void USCI0TX_ISR(void) {
 }
 
 void rf_send(uchar* cmd, uchar length){
+  if(rf_tx_in_progress){
+    return;
+  }
+  rf_tx_in_progress = 1;
   rf_tx_buf = cmd;
   rf_tx_buf_size = length;
   startRFSending();
