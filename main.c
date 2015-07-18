@@ -218,7 +218,7 @@ __interrupt void TimerA_ISR(void)
       pingCntr++;
       if(pingCntr > resetTimeout){//no signal from host for ~ resetTimeout * 4 seconds
         P3OUT &= ~BIT7; //BT reset pin lo
-        rfResetCntr = 11;
+        rfResetCntr = 1;
         pingCntr = 0;
       }
     }
