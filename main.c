@@ -12,6 +12,7 @@
 #define unfinishedIncomingMsgError "\xAA\xA5\x07\xA2\x00\x01\x55"
 #define unknownOneByteCmdError     "\xAA\xA5\x07\xA2\x00\x02\x55" 
 #define noStopMarkerError          "\xAA\xA5\x07\xA2\x00\x03\x55"
+#define txFailError          "\xAA\xA5\x07\xA2\x00\x04\x55"
 #define lowBatteryMessage "\xAA\xA5\x07\xA3\x00\x01\x55"
 #define hardwareConfigMessage "\xAA\xA5\x09\xA4\x00\x01\x08\x01\x55"//reserved, power button, 8ADS channels, 1 accelerometer
 
@@ -19,7 +20,6 @@ void onRF_MessageReceived();
 void onRF_MultiByteMessage();
 void startRecording();
 void stopRecording();
-void sendMessage(uchar* cmd, uchar length);
 uchar packetDataReady = 0;
 uchar lowBatteryMessageAlreadySent = 0;
 uchar shutDownCntr = 0;
@@ -77,26 +77,26 @@ void onRF_MessageReceived(){
       startRecording();
       break;
     case 0xFD: //hello command
-      sendMessage(helloMsg,5);
+      rf_send(helloMsg,5);
       break;
     case 0xFC: //версия прошивки
-      sendMessage(firmwareVersion,7);
+      rf_send(firmwareVersion,7);
       break;
     case 0xFB: //ping command
       pingCntr = 0;
       break;
     case 0xFA: //hardware config request
-     sendMessage(hardwareConfigMessage,9);
+     rf_send(hardwareConfigMessage,9);
       break;
     default:
       if((rf_rx_buf_size < rf_rx_buf[0]) && (rf_rx_buf[0] < 0xFA)){//проверяем длину однобайтовой команды
-        sendMessage(unknownOneByteCmdError,7);
+        rf_send(unknownOneByteCmdError,7);
       }
       //проверяем два последних байта == маркер конца пакета
       if(((rf_rx_buf[rf_rx_buf[0]-1] == 0x55) && (rf_rx_buf[rf_rx_buf[0]-2] == 0x55))){
         onRF_MultiByteMessage();
       }else{
-        sendMessage(noStopMarkerError,7);
+        rf_send(noStopMarkerError,7);
       }
       break;
     }
@@ -138,17 +138,9 @@ void onRF_MultiByteMessage(){
        startRecording();
        msgOffset+=1;
     }else{
-      sendMessage(unknownMultiByteCmdError,7);
+      rf_send(unknownMultiByteCmdError,7);
       return;
     }
-  }
-}
-
-void sendMessage(uchar* cmd, uchar length){
-  if(isRecording){
-    rf_send_after(cmd, length);
-  }else{
-    rf_send(cmd, length);
   }
 }
 
@@ -242,7 +234,7 @@ __interrupt void TimerA_ISR(void)
   if(!lowBatteryMessageAlreadySent){    
       if(sumBatteryVoltage < BATT_LOW_TH){
         lowBatteryMessageAlreadySent = 1;
-        sendMessage(lowBatteryMessage,7);
+        rf_send(lowBatteryMessage,7);
         shutDownCntr = 1;
       }
   }
@@ -264,7 +256,11 @@ __interrupt void TimerA_ISR(void)
     }
   }
   if(rf_delete_unfinished_incoming_messages()){
-    sendMessage(unfinishedIncomingMsgError,7);
+    rf_send(unfinishedIncomingMsgError,7);
+  }
+  if(rf_tx_fail_flag){//debug information maybe delete
+    rf_tx_fail_flag = 0;
+    rf_send(txFailError,7);
   }
 }
 /* -------------------------------------------------------------------------- */ 
