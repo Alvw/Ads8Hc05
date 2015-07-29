@@ -15,6 +15,7 @@
 #define txFailError          "\xAA\xA5\x07\xA2\x00\x04\x55"
 #define lowBatteryMessage "\xAA\xA5\x07\xA3\x00\x01\x55"
 #define hardwareConfigMessage "\xAA\xA5\x09\xA4\x00\x01\x08\x01\x55"//reserved, power button, 8ADS channels, 1 accelerometer
+#define stopRecordingResponceMessage "\xAA\xA5\x05\xA5\x55"//reserved, power button, 8ADS channels, 1 accelerometer
 
 void onRF_MessageReceived();
 void onRF_MultiByteMessage();
@@ -72,6 +73,7 @@ void onRF_MessageReceived(){
     switch(rf_rx_buf[0]){
     case 0xFF: //stop recording command
       stopRecording();
+      rf_send(stopRecordingResponceMessage,5);
       break;
     case 0xFE: //start recording command
       startRecording();
@@ -131,9 +133,6 @@ void onRF_MultiByteMessage(){
     }else if(rf_rx_buf[msgOffset] == 0xF6){//RF reset timeout при отсутствии Ping команды с компьютера. 
       resetTimeout = rf_rx_buf[msgOffset+1] * 4;
       msgOffset+=2;
-    }else if(rf_rx_buf[msgOffset] == 0xFF){//stop recording command 
-       stopRecording();
-       msgOffset+=1;
     }else if(rf_rx_buf[msgOffset] == 0xFE){//start recording command 
        startRecording();
        msgOffset+=1;
