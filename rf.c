@@ -9,6 +9,7 @@ uchar getStrSize(uchar* str);
 uchar rf_rx_data_ready_fg;
 uchar rf_rx_buf[rf_rx_buf_size];
 uchar rf_rx_data_size;
+uchar rfConStat = 1;
 
 uchar* rf_tx_buf;
 uchar rf_tx_buf_size = 0;
@@ -95,6 +96,7 @@ __interrupt void USCI0TX_ISR(void) {
 //Send packet. If tx in progress put packet in a queue. If
 //there is data in the queue already, sets fail flag and do nothing
 void rf_send(uchar* cmd, uchar length){
+  if(!rfConStat) return; //do nothing if RF not connected
   if(rf_tx_buf_size){//if tx in progress
     if(rf_tx_buf_1_size){//if tx queue already busy
       rf_tx_fail_flag = 1; //set fail flag and do nothing

@@ -16,6 +16,7 @@
 #define lowBatteryMessage "\xAA\xA5\x07\xA3\x00\x01\x55"
 #define hardwareConfigMessage "\xAA\xA5\x09\xA4\x00\x01\x08\x01\x55"//reserved, power button, 8ADS channels, 1 accelerometer
 #define stopRecordingResponceMessage "\xAA\xA5\x05\xA5\x55"//reserved, power button, 8ADS channels, 1 accelerometer
+#define chargeShutDownMessage "\xAA\xA5\x05\xA6\x55"
 
 void onRF_MessageReceived();
 void onRF_MultiByteMessage();
@@ -189,9 +190,9 @@ __interrupt void Port1_ISR(void)
       __bic_SR_register_on_exit(CPUOFF); // Не возвращаемся в сон при выходе
     }
   }
-  if (P1IFG & BIT0) { 
-    P1IFG &= ~BIT0;      // Clear BT connection status flag
-  }
+//  if (P1IFG & BIT0) { 
+//    P1IFG &= ~BIT0;      // Clear BT connection status flag
+//  }
 }
 /* -------------------------------------------------------------------------- */
 /* ------------------------- Прерывание от таймера -------------------------- */
@@ -204,7 +205,7 @@ __interrupt void TimerA_ISR(void)
     P3OUT |= BIT7;//BT reset pin hi
     rfResetCntr = 0;
   }
-  if(isRecording){
+  if(isRecording && rfConStat){
     if(resetTimeout){
       pingCntr++;
       if(pingCntr > resetTimeout){//no signal from host for ~ resetTimeout * 4 seconds
@@ -224,7 +225,18 @@ __interrupt void TimerA_ISR(void)
   }else{
       btnCntr = 0;
   }
-  if(btnCntr >= (4 + isRecording * 20)){ //1 сек задержка перед выключением в покое и 6 сек при записи
+  if(BIT0 & P1IN){// if rf connected
+      rfConStat = 1;
+  }else{
+      rfConStat = 0;
+  }
+  if(!(BIT4 & P2IN)){// if charge plug connected
+    if(!shutDownCntr){
+      shutDownCntr = 1;
+      rf_send(chargeShutDownMessage,5);
+    }
+  }
+  if(btnCntr >= (4)){ //1 сек задержка перед выключением
         led(1);
         P1OUT &= ~BIT6; //power hold pin
         while(1){} //ждем отпускания кнопки
@@ -239,7 +251,7 @@ __interrupt void TimerA_ISR(void)
   }
   if(shutDownCntr){
     shutDownCntr++;
-    if(shutDownCntr == 20){//wait 1 second before shut down
+    if(shutDownCntr > 4){//wait 1 second before shut down
       P1OUT &= ~BIT6; //power hold pin
     }
   }

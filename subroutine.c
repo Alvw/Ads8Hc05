@@ -25,10 +25,15 @@ void sys_init(){
   P1OUT &= ~BIT7;
   
   //initialize BT_CON_STAT pin (P1.0)
-  P1REN |= BIT0;         // Pull-UP/DOWN Resistors Enabled
-  P1IES &= ~BIT0;       // Interrupt on rising edge
-  P1IFG &= ~BIT0;       // Clear flag
-  P1IE |= BIT0;         // Enable interrupt on DRDY
+//  P1REN |= BIT0;         // Pull-UP/DOWN Resistors Enabled
+//  P1IES &= ~BIT0;       // Interrupt on rising edge
+//  P1IFG &= ~BIT0;       // Clear flag
+//  P1IE |= BIT0;         // Enable interrupt on DRDY
+  
+  //initialize Charge status pin
+  P2DIR &= ~BIT4; //input
+  P2REN |= BIT4; //Pull up/down resistor enabled
+  P2OUT |= BIT4; //pull up resistor direction
   
   //initialize power hold pin
   P1DIR |= BIT6;
