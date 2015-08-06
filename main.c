@@ -32,7 +32,7 @@ uchar btnCntr = 0;
 uchar isRecording = 0;
 uint batteryVoltage = 800;
 uint sumBatteryVoltage = 8000;
-uchar batteryCntr = 1;
+uchar batteryCntr = 0;
 
 //таймаут до перезагрузки RF модуля в количестве циклов таймера. 1 цикл таймера ~ 0.25 секунды.
 // 0 - перезагрузка отключена
