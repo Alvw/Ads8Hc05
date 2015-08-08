@@ -56,7 +56,7 @@ __interrupt void USCI0RX_ISR(void) {
         __bic_SR_register_on_exit(CPUOFF);
       }else{
         rf_rx_data_size = rf_rx_buf[0];
-        rf_incoming_message_timeout_cntr = 1;
+        if(rf_incoming_message_timeout_cntr == 0) rf_incoming_message_timeout_cntr = 1;
       }
       break;
     default:

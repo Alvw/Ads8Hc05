@@ -14,7 +14,7 @@
 #define noStopMarkerError          "\xAA\xA5\x07\xA2\x00\x03\x55"
 #define txFailError          "\xAA\xA5\x07\xA2\x00\x04\x55"
 #define lowBatteryMessage "\xAA\xA5\x07\xA3\x00\x01\x55"
-#define hardwareConfigMessage "\xAA\xA5\x09\xA4\x00\x01\x08\x01\x55"//reserved, power button, 8ADS channels, 1 accelerometer
+#define hardwareConfigMessage "\xAA\xA5\x07\xA4\x08\x01\x55"//reserved, power button, 8ADS channels, 1 accelerometer
 #define stopRecordingResponceMessage "\xAA\xA5\x05\xA5\x55"//reserved, power button, 8ADS channels, 1 accelerometer
 #define chargeShutDownMessage "\xAA\xA5\x05\xA6\x55"
 
@@ -89,7 +89,7 @@ void onRF_MessageReceived(){
       pingCntr = 0;
       break;
     case 0xFA: //hardware config request
-     rf_send(hardwareConfigMessage,9);
+     rf_send(hardwareConfigMessage,7);
       break;
     default:
       if((rf_rx_buf_size < rf_rx_buf[0]) && (rf_rx_buf[0] < 0xFA)){//проверяем длину однобайтовой команды
@@ -190,9 +190,6 @@ __interrupt void Port1_ISR(void)
       __bic_SR_register_on_exit(CPUOFF); // Не возвращаемся в сон при выходе
     }
   }
-//  if (P1IFG & BIT0) { 
-//    P1IFG &= ~BIT0;      // Clear BT connection status flag
-//  }
 }
 /* -------------------------------------------------------------------------- */
 /* ------------------------- Прерывание от таймера -------------------------- */
@@ -210,7 +207,7 @@ __interrupt void TimerA_ISR(void)
       pingCntr++;
       if(pingCntr > resetTimeout){//no signal from host for ~ resetTimeout * 4 seconds
         P3OUT &= ~BIT7; //BT reset pin lo
-        rfResetCntr = 1;
+        if (rfResetCntr == 0)rfResetCntr = 1;
         pingCntr = 0;
       }
     }
@@ -231,7 +228,7 @@ __interrupt void TimerA_ISR(void)
       rfConStat = 0;
   }
   if(!(BIT4 & P2IN)){// if charge plug connected
-    if(!shutDownCntr){
+    if(shutDownCntr == 0){
       shutDownCntr = 1;
       rf_send(chargeShutDownMessage,5);
     }
@@ -246,7 +243,7 @@ __interrupt void TimerA_ISR(void)
       if(sumBatteryVoltage < BATT_LOW_TH){
         lowBatteryMessageAlreadySent = 1;
         rf_send(lowBatteryMessage,7);
-        shutDownCntr = 1;
+        if (shutDownCntr == 0) shutDownCntr = 1;
       }
   }
   if(shutDownCntr){
