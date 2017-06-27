@@ -6,7 +6,7 @@ typedef unsigned int uint;
 // Пороги АЦП
 //#define BATT_FULL_TH  837 // 3,80В
 //-----------------
-#define BATT_LOW_TH  7000 
+#define BATT_LOW_TH  6700 
 //-----------------
 //#define BATT_MID_TH   805 // 3,65В
 //#define BATT_LOW_TH   770 // 3,50В
